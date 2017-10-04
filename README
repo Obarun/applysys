@@ -1,5 +1,4 @@
-Applysys is a  utility script written in bash to parse and apply 
-sysusers.d style file coming from systemd.
+Applysys is a  utility script written in bash to parse and apply sysusers.d style file coming from systemd.
 
 License
 =======
