@@ -12,11 +12,11 @@ all: doc
 
 install: all
 	
-	sed -i 's,@BINDIR@,$(BINDIR),' $(FILES)
+	sed -i 's,@BINDIR@,$(BINDIR),' $(SCRIPTS)
 		
 	install -Dm 0755 applysys.in $(DESTDIR)/usr/bin/applysys
 		
-	install -Dm 0644 applysys.hook $(DESTDIR)/usr/share/libalpm/hooks/$$i; \
+	install -Dm 0644 applysys.hook $(DESTDIR)/usr/share/libalpm/hooks/applysys.hook; \
 		
 	install -Dm644 doc/applysys.1 $(DESTDIR)/usr/share/man/man1/applysys.1
 		
