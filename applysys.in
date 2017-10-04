@@ -8,7 +8,13 @@
 # This file may not be copied, modified, propagated, or distributed
 # except according to the terms contained in the LICENSE file.
 
+
 source /usr/lib/obarun/util.sh
+
+if ! (( EUID == 0 )); then
+	out_error "You must be run this script with root privilegies"
+	exit 1
+fi
 
 SYS_PATH=( "/etc/sysusers.d" "/run/sysusers.d" "/usr/lib/sysusers.d" )
 SYS_NAME=""
@@ -211,3 +217,5 @@ line_m(){
 cmd=( "${@}" )
 
 parse_file "${cmd[@]}"
+
+exit 0
