@@ -1,0 +1,14 @@
+[Trigger]
+Type = File
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/sysusers.d/*.conf
+Target = run/sysusers.d/*.conf
+Target = etc/sysusers.d/*.conf
+
+[Action]
+Description = Updating system user/group accounts...
+When = PostTransaction
+Depends = applysys
+Exec = /bin/sh -c '/usr/bin/applysys'
+NeedsTargets

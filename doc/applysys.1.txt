@@ -1,0 +1,39 @@
+applysys(1)
+==========
+
+Name
+----
+applysys - wrapper for sysusers.d files
+
+Synopsis
+--------
+'applysys' [ target ]
+
+Description
+-----------
+Applysys is a  utility script written in bash to parse and apply 
+sysusers.d style file coming from systemd.
+
+Using
+-----
+Parse 'target' file where 'target' can be found at 
+/usr/lib/sysusers.d, /run/sysusers.d, /etc/sysusers.d. If 'target' 
+is blank, applysys will	parse all founded file on thoses directories.
+
+'target' can be a list.
+
+The 'target' to parse and apply need to comport the .conf extension.
+
+Example to parse and apply 'target' :
+		
+	applysys nbd.conf virtualbox.conf
+
+applysys provide an hook for pacman which run this operation automatically
+at the package installation. This hook is installed at 
+/usr/share/libalpm/hooks/applysys.hook. If you do not want to let pacman
+using this operation at package installation, just remove this file from
+your system.
+
+Authors
+-------
+Eric Vidal <eric@obarun.org>

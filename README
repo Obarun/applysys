@@ -1,0 +1,14 @@
+Applysys is a  utility script written in bash to parse and apply 
+sysusers.d style file coming from systemd.
+
+License
+=======
+
+This script is under ISC license
+
+Other words
+===========
+
+Please if you like it or find a bugs or need more information, give a feedback on :
+
+https://forum.obarun.org

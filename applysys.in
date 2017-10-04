@@ -1,0 +1,213 @@
+#!@BINDIR@/bash
+# Copyright (c) 2015-2017 Eric Vidal <eric@obarun.org>
+# All rights reserved.
+# 
+# This file is part of Obarun. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/Obarun/applysys/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+source /usr/lib/obarun/util.sh
+
+SYS_PATH=( "/etc/sysusers.d" "/run/sysusers.d" "/usr/lib/sysusers.d" )
+SYS_NAME=""
+SYS_RESULT=""
+
+TYPE=""
+NAME=""
+ID=""
+DIRECTORY=""
+
+check_elements(){
+	for e in "${@:2}"; do [[ $e == $1 ]] && return 0; done; return 1;
+	unset e
+}
+check_file(){
+	
+	local tidy_loop conf
+	
+	for tidy_loop in ${SYS_PATH[@]}; do
+		if [[ -d "${tidy_loop}" ]]; then
+			for conf in "${tidy_loop}"/*.conf ; do
+				check_elements ${conf##*/} ${SYS_NAME[@]}
+				if (( $? )); then
+					SYS_NAME+=("${conf##*/}")
+				fi
+			done
+		fi
+	done
+	
+	unset tidy_loop conf
+}
+check_path(){
+	
+	local path tidy_loop
+	
+	for path in ${SYS_PATH[@]}; do
+		for tidy_loop in ${SYS_NAME[@]}; do
+			if [[ -f "${path}/${tidy_loop}" ]]; then
+				check_elements "${tidy_loop}" ${SYS_RESULT[@]##*/}
+				if (( $? ));then
+					SYS_RESULT+=("${path}/${tidy_loop}")
+				fi
+			fi
+		done
+	done
+	
+	unset path tidy_loop
+}
+
+# ${1} file to parse, can be a list e.g. nbd.conf quemu.conf
+parse_file(){
+	local sys line
+	local -a array_line
+	
+	if [[ -z "${1}" ]];then
+		check_file
+		check_path
+	else
+		SYS_NAME=( "${@}" )
+		check_path
+	fi
+
+	#echo SYS_RESULT::"${SYS_RESULT[@]}"
+	
+	for sys in ${SYS_RESULT[@]}; do
+		
+		while read line; do
+			if [[ ${line:0:1} == "#" ]]; then
+				continue
+			fi
+			array_line=( ${line} )
+			
+			#out_void
+			#echo array_line::${array_line[@]}
+			
+			for ((i=0; i<4; i++));do
+				
+				case $i in
+					0) 	TYPE=${array_line[$i]}
+						;;
+					1) 	NAME=${array_line[$i]}
+						;;
+					2) 	ID=${array_line[$i]}
+						;;
+					3) 	if [[ ${array_line[$i]} == "-" ]] || [[ -z ${array_line[$i]} ]]; then
+							COMMENT=""
+						else
+							COMMENT=$(awk -F "\"*\"" '{ print $2 }' <<< ${array_line[@]:3})
+						fi
+						;;
+				esac
+			done
+			case ${TYPE} in
+				u) 	line_u "${array_line[@]:3}"
+					;;
+				g) 	line_g "${array_line[@]:3}"
+					;;				
+				m)	line_m 
+					;;
+				r) 	out_info "applysys script cannot parse the file ${sys} for r line,"
+					out_info "you need to do it manually"
+					continue
+					;;
+				*) continue
+					;;
+			esac
+		done < ${sys}
+	done
+	
+	unset sys line array_line SYS_PATH SYS_NAME SYS_RESULT
+}
+
+# {1} line to parse
+check_args(){
+	
+	local what 
+	
+	what="${1}"
+	
+	case "${what}" in
+		/*)	DIRECTORY="${what}"
+			;;
+		esac
+	
+	unset what
+}
+
+
+line_u(){
+	local uline="${@}"
+	
+	for i in ${uline[@]};do
+		check_args "${i}"
+	done
+	
+	if [[ -z "${DIRECTORY}" ]]; then
+		DIRECTORY="/"
+	fi
+	
+	getent group "${NAME}" &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		if [[ "${ID}" == "-" ]]; then
+			out_action "groupadd -r ${NAME}" 
+			groupadd -r "${NAME}" || out_notvalid "Impossible to create group ${NAME}"
+			ID=$(getent group ${NAME}| cut -d: -f3)
+		else
+			out_action "groupadd -r -g ${ID} ${NAME}"
+			groupadd -r -g "${ID}" "${NAME}" || out_notvalid "Impossible to create group ${NAME}"
+		fi
+	fi
+	
+	getent passwd "${NAME}" &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		out_action "useradd -rc ${COMMENT} -g ${NAME} -u ${ID} -d ${DIRECTORY} -s /sbin/nologin ${NAME}"
+		useradd -rc "${COMMENT}" -g "${NAME}" -u "${ID}" -d "${DIRECTORY}" -s "/sbin/nologin" "${NAME}" || out_notvalid "Impossible to create user ${NAME}"
+		out_action "change password expiry information"
+		passwd -l "${NAME}" &>/dev/null || out_notvalid "Failing to disable login for ${NAME}"
+	fi
+	
+	unset TYPE NAME ID COMMENT DIRECTORY uline
+}
+line_g(){
+	
+	local gline="${@}"
+	
+	getent group "${NAME}" &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		if [[ "${ID}" == "-" ]]; then
+			out_action "groupadd -r ${NAME}" 
+			groupadd -r "${NAME}" || out_notvalid "Impossible to create group ${NAME}"
+		else
+			out_action "groupadd -r -g ${ID} ${NAME}"
+			groupadd -r -g "${ID}" "${NAME}" || out_notvalid "Impossible to create group ${NAME}"
+		fi
+	fi
+	
+	unset TYPE NAME ID COMMENT DIRECTORY gline
+}
+
+line_m(){
+		
+	getent group "${ID}" &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		out_action "groupadd -r ${ID}"
+		groupadd -r $"{ID}" || out_notvalid "Impossible to create group ${ID}"
+	fi
+	
+	getent passwd "${NAME}" &>/dev/null
+	if [[ $? -ne 0 ]]; then
+		out_action "useradd -r -g ${ID} ${NAME}"
+		useradd -r -g "${ID}" "${NAME}" || out_notvalid "Impossible to create user ${NAME}"
+	else
+		out_action "usermod -a -G ${ID} ${NAME}"
+		usermod -a -G "${ID}" "${NAME}" || out_notvalid "Impossible to add ${NAME} to ${ID} group"	
+	fi
+		
+	unset TYPE NAME ID COMMENT DIRECTORY
+}
+
+cmd=( "${@}" )
+
+parse_file "${cmd[@]}"
